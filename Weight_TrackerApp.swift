@@ -1,13 +1,14 @@
+
 import SwiftUI
 
 @main
 struct WeightTrackerApp: App {
-    @StateObject var DataManager = DataManager()
-
+    @StateObject var dataManager = DataManager()
+    
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .environmentObject(DataManager)
+                .environmentObject(dataManager)
         }
     }
 }
