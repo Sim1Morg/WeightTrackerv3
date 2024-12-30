@@ -201,10 +201,10 @@ struct ContentView: View {
 
     @State private var selectedImage: PhotosPickerItem?
     @State private var image: UIImage?
-    @State private var selectedEntry: WeightEntry?
+   
     @State private var selectedDate = Date()
     @State private var showDatePicker = false
-    @State private var isEditing = false
+    
     @State private var showChart = false
     
     private var latestEntry: WeightEntry? {
@@ -243,11 +243,7 @@ struct ContentView: View {
                    }
                     
             }
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-            }
+           
             .navigationBarItems(trailing: NavigationLink(destination: HistoryView(selectedUnit: selectedUnit)){ Text("History")})
            
         }

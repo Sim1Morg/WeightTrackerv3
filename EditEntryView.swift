@@ -20,7 +20,6 @@ struct EditEntryView: View {
     @State private var selectedImage: PhotosPickerItem?
     @State private var image: UIImage?
     @State private var selectedDate = Date()
-    @State private var showDatePicker = false
     var onUpdate: ((WeightEntry) -> Void)?
 
 
@@ -37,14 +36,8 @@ struct EditEntryView: View {
             List {
                 HStack {
                 Text("Date:")
-                Button(action: { showDatePicker.toggle() }) {
-                    Text("\(selectedDate, format: .dateTime.day().month().year())")
-                }
-                .sheet(isPresented: $showDatePicker, onDismiss: {}) {
-                    DatePicker("Date", selection: $selectedDate, displayedComponents: .date)
-                        .presentationDetents([.medium])
-                        .onDisappear { showDatePicker = false }
-                }
+                     DatePicker("", selection: $selectedDate, displayedComponents: .date)
+                        .labelsHidden()
             }
               HStack {
                    Text("Unit: \(selectedUnit)")

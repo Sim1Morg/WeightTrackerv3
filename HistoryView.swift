@@ -3,7 +3,12 @@ import SwiftUI
 struct HistoryView: View {
     @StateObject private var dataManager = DataManager()
     @State private var selectedUnit = "kg"
-
+    @State private var selectedImage: UIImage? = nil
+    @State private var showingFullscreenImage: Bool = false
+    
+    @State private var selectedEntry: WeightEntry?
+    @State private var isEditing = false
+    
       init(selectedUnit: String) {
             _selectedUnit = State(initialValue: selectedUnit)
        }
@@ -15,8 +20,12 @@ struct HistoryView: View {
             List {
                 Section(){
                     ForEach(dataManager.entries.sorted(by: { $0.date > $1.date })) { entry in
-                            ItemRow(entry: entry, selectedEntry: .constant(nil), isEditing: .constant(false), entries: dataManager.entries, dataManager: dataManager, currentUnit: selectedUnit)
-                                
+                        // START of ItemRow
+                        ItemRow(entry: entry, selectedEntry: $selectedEntry, isEditing: $isEditing, entries: dataManager.entries, dataManager: dataManager, currentUnit: selectedUnit, onImageTap: { image in
+                                selectedImage = image
+                                showingFullscreenImage = true
+                            })
+                        // END of ItemRow
                         }
                     .onDelete(perform: deleteItems)
                     }
@@ -25,7 +34,36 @@ struct HistoryView: View {
             .listStyle(.plain)
         
         }
-         
+         .sheet(isPresented: $showingFullscreenImage) {
+                if let image = selectedImage {
+                    FullscreenImageView(image: image)
+                        .presentationDetents([.large])
+                }
+            }
+        .sheet(isPresented: Binding(
+            get: { isEditing && selectedEntry != nil},
+            set: { newValue in
+                if !newValue {
+                    selectedEntry = nil
+                }
+                isEditing = newValue
+            })) {
+                if let selectedEntry {
+                    EditEntryView(entry: selectedEntry, selectedUnit: selectedUnit, onUpdate: { updatedEntry in
+                        if let index = dataManager.entries.firstIndex(where: {$0.id == selectedEntry.id} )
+                    {
+                        dataManager.entries[index] = updatedEntry
+                    }
+                        isEditing = false
+                    })
+            }
+           
+        }
+        .task(id: showingFullscreenImage) {
+            if showingFullscreenImage, let entry = dataManager.entries.first(where: {$0.imageData != nil && $0.imageData == selectedImage?.jpegData(compressionQuality: 1.0)} ), let image = entry.getImage() {
+                selectedImage = image
+            }
+        }
     }
      private func deleteItems(offsets: IndexSet) {
          withAnimation {
@@ -76,6 +114,7 @@ struct ItemRow: View {
     var entries: [WeightEntry]
     var dataManager: DataManager
     var currentUnit: String
+    var onImageTap: (UIImage) -> Void
     
     private func displayWeight(entry: WeightEntry, unit:String) -> String {
         let weightForDisplay: Double
@@ -96,71 +135,54 @@ struct ItemRow: View {
     private func kgToStone(kg:Double) -> Double {
         return kg / 6.35029
     }
-
+    
     var body: some View {
-          HStack {
-             VStack(alignment: .leading) {
-                  Text("\(entry.date, formatter: itemDateFormatter)")
-                     .font(.caption)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                  Text("\(entry.date, formatter: itemTimeFormatter)")
-                     .font(.caption)
-                         .frame(maxWidth: .infinity, alignment: .center)
-              }
+        HStack {
+            VStack(alignment: .leading) {
+                Text("\(entry.date, formatter: itemDateFormatter)")
+                    .font(.caption)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                Text("\(entry.date, formatter: itemTimeFormatter)")
+                    .font(.caption)
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+            
+            Text("\(displayWeight(entry: entry, unit: currentUnit))")
                 .frame(maxWidth: .infinity, alignment: .center)
-                  
-               Text("\(displayWeight(entry: entry, unit: currentUnit))")
-                    .frame(maxWidth: .infinity, alignment: .center)
-              
-                Text("\(entry.muscleMass.formatted(.number.precision(.fractionLength(1))))")
-                    .frame(maxWidth: .infinity, alignment: .center)
-                
-                Text("\(entry.bodyFat.formatted(.number.precision(.fractionLength(1))))")
-                    .frame(maxWidth: .infinity, alignment: .center)
-               Text("\(entry.visceralFat.formatted(.number.precision(.fractionLength(0))))")
-                    .frame(maxWidth: .infinity, alignment: .center)
-              if let image = entry.getImage() {
-                    Button {
-                         //Add image to view here
-                    } label: {
-                        Image(uiImage: image)
-                            .resizable()
-                             .scaledToFit()
-                            .frame(width: 30, height: 30, alignment: .center)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .center)
-          } else {
-             Text("-")
-                 .frame(maxWidth: .infinity, alignment: .center)
-          }
-         
-          }
-           .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                Button("Edit") {
-                   isEditing = true
-                   selectedEntry = entry
+            
+            Text("\(entry.muscleMass.formatted(.number.precision(.fractionLength(1))))")
+                .frame(maxWidth: .infinity, alignment: .center)
+            
+            Text("\(entry.bodyFat.formatted(.number.precision(.fractionLength(1))))")
+                .frame(maxWidth: .infinity, alignment: .center)
+            Text("\(entry.visceralFat.formatted(.number.precision(.fractionLength(0))))")
+                .frame(maxWidth: .infinity, alignment: .center)
+            if let image = entry.getImage() {
+                Button {
+                   onImageTap(image)
+                } label: {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 30, height: 30, alignment: .center)
                 }
-                .tint(.blue)
-           }
-           .sheet(isPresented: Binding(
-               get: { isEditing && selectedEntry?.id == entry.id },
-               set: { newValue in
-                   if !newValue {
-                       selectedEntry = nil
-                   }
-                   isEditing = newValue
-           })
-           ) {
-               EditEntryView(entry: selectedEntry ?? entry, selectedUnit: currentUnit, onUpdate: { updatedEntry in
-                         if let index = entries.firstIndex(where: {$0.id == entry.id} )
-                   {
-                       dataManager.entries[index] = updatedEntry
-                     }
-
-                   isEditing = false
-                 })
-           }
-       
+                .frame(maxWidth: .infinity, alignment: .center)
+            } else {
+                Text("-")
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
+            
+        }
+        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+            Button("Edit") {
+                isEditing = true
+                selectedEntry = entry
+            }
+            .tint(.blue)
+        }
+        
+        
     }
 }
 
